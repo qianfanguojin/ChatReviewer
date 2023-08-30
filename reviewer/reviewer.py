@@ -86,7 +86,6 @@ class Reviewer:
             if heading in self.paper.section_names:
                 text += heading + ': ' + self.paper.section_texts[heading]
         chat_review_text, _ = self.chat_review(text=text)
-        htmls.append('\n\n\n')
         htmls.append(chat_review_text)
         export_text = "\n".join(htmls)
         return export_text, self.paper.title

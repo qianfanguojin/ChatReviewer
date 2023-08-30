@@ -91,4 +91,4 @@ def run():
                                     description=description)
 
     # Start server
-    chat_reviewer_gui.launch(quiet=True, show_api=False)
+    chat_reviewer_gui.launch(quiet=True, show_api=False, server_name="0.0.0.0")
