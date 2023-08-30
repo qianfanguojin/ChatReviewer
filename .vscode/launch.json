@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "name": "Launch Python file",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["--api", "fk-0MaUX9boiK-aNkp1Kqt33C8pMzqFJ3x9bChUBm0AVpE",
+            "--host", "https://ai.fakeopen.com", "--paper_path","C:\\Users\\yifan\\Downloads\\applsci-2579428-peer-review-v1.pdf"]
+        },
+    ]
+}
