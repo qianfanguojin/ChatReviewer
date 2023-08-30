@@ -1,0 +1,10 @@
+version: '3.0'
+services:
+  chatreviewer:
+    image: chatreviewer:yifanx
+    container_name: chatreviewer-yifanx
+    restart: always
+    #  - ${MYDISK}:/srv/WD
+    #  - ~/Downloads/alist:/srv/Downloads
+    ports:
+      - '7860:7860'
