@@ -1,12 +1,16 @@
 {
+    // 使用 IntelliSense 了解相关属性。
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Python file",
+            "name": "Python: 启动Web",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
-            "args": ["--api", "fk-0MaUX9boiK-aNkp1Kqt33C8pMzqFJ3x9bChUBm0AVpE",
-            "--host", "https://ai.fakeopen.com", "--paper_path","C:\\Users\\yifan\\Downloads\\applsci-2579428-peer-review-v1.pdf"]
-        },
+            "program": "${workspaceFolder}/launch_web.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
     ]
 }

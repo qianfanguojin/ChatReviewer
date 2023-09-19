@@ -9,13 +9,14 @@ def main(api_key, host, research_fields, review_format, pdf_file, language):
         return "请填写API-key！", ""
     if not research_fields:
         return "请填写论文的研究方向！", ""
+    result = ""
     try:
         pdf_file_path = pdf_file.name
         reviewer = Reviewer(api_key, host, review_format, research_fields, pdf_file_path, language)
+        result,_  = reviewer.review()
     except Exception as e:
         Console.error_bh("出现错误：" + str(e))
         return "出现错误：" + str(e), ""
-    result,_  = reviewer.review()
     return result, ""
 
 def run():

@@ -10,6 +10,7 @@ from paper.get_paper_from_pdf import Paper
 import jieba
 from utils import Console
 import constants
+import os
 
 def contains_chinese(text):
     for ch in text:
@@ -31,18 +32,116 @@ class Reviewer:
         self.paper = Paper(path=paper)
         self.language = language
         self.research_fields = research_fields
-        self.max_token_num = 4096
-        self.encoding = tiktoken.get_encoding("gpt2")
-        openai.api_key = api_key
+        self.max_token_num = 2048
+        self.encoding = tiktoken.encoding_for_model('gpt-3.5-turbo')
+        #self.encoding = tiktoken.get_encoding("gpt2")
+        openai.api_key= api_key
         openai.api_base = f"{host}/v1"
+        #self.env_init()
+        #self.langchain_review(paper)
+
+    def env_init(self):
+        os.environ["OPENAI_API_KEY"] = self.api_key
+        os.environ["OPENAI_API_BASE"] = self.api_base
+
+
+
+    def langchain_review(self, pdf_path):
+        print(os.getenv("OPENAI_API_KEY"),"             ",os.getenv("OPENAI_API_BASE"))
+        from langchain.document_loaders import PDFPlumberLoader
+        from langchain.text_splitter import RecursiveCharacterTextSplitter,CharacterTextSplitter
+        from langchain.vectorstores import FAISS,Chroma
+        # 导入文本
+        loader = PDFPlumberLoader(pdf_path)
+        # 将文本转成 Document 对象
+        documents = loader.load()
+        print(f'documents:{len(documents)}')
+        # 初始化文本分割器
+        text_splitter = CharacterTextSplitter(
+            separator="\n",
+            chunk_size=1000,
+            chunk_overlap=20
+        )
+        # 切分文本
+        split_documents = text_splitter.split_documents(documents)
+        print(f'documents:{len(split_documents)}')
+        # 初始化 openai embeddings
+        from langchain.embeddings.openai import OpenAIEmbeddings
+        os.environ["OPENAI_API_KEY"] = "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"
+        os.environ["OPENAI_PROXY"] = "http://172.17.0.2:7890"
+        embeddings = OpenAIEmbeddings()
+        print(embeddings)
+        # 将数据存入向量存储
+        vector_store = Chroma.from_documents(split_documents, embeddings)
+        # 通过向量存储初始化检索器
+        retriever = vector_store.as_retriever()
+        self.env_init()
+        system_template = """
+            Use the following context to answer the user's question.
+            If you don't know the answer, say you don't, don't try to make it up. And answer in Chinese.
+            -----------
+            {question}
+            -----------
+            {chat_history}
+        """
+        context = """
+            You are a professional reviewer in the field of {research_fields}.
+            I will give you a paper. You need to review this paper and discuss the novelty and originality of ideas, correctness, clarity, the significance of results, potential impact and quality of the presentation.
+            Due to the length limitations, I am only allowed to provide you the abstract, introduction, conclusion and at most two sections of this paper.
+            Now I will give you the title and abstract and the headings of potential sections.
+            You need to reply at most two headings. Then I will further provide you the full information, includes aforementioned sections and at most two sections you called for.
+            Title: {paper.title}
+            Abstract: {paper.section_texts['Abstract']}
+            Potential Sections: {self.paper.section_names[2:-1]}
+            Follow the following format to output your choice of sections:
+            {chosen section 1}, {chosen section 2}
+        """
+
+        system_template = """
+            You are a professional reviewer in the field of {research_fields}.
+            You need to review this paper and discuss the novelty and originality of ideas, correctness, clarity, the significance of results, potential impact and quality of the presentation.
+        """.format({
+                "research_fields": self.research_fields
+            })
+        # 构建初始 messages 列表，这里可以理解为是 openai 传入的 messages 参数
+        from langchain.prompts.chat import (
+            ChatPromptTemplate,
+            SystemMessagePromptTemplate,
+            HumanMessagePromptTemplate
+        )
+        messages = [
+            SystemMessagePromptTemplate.from_template(system_template),
+            HumanMessagePromptTemplate.from_template('{question}')
+        ]
+        # 初始化 prompt 对象
+        prompt = ChatPromptTemplate.from_messages(messages)
+        # 初始化问答链
+        from langchain.chat_models import ChatOpenAI
+        from langchain.chains import ChatVectorDBChain, ConversationalRetrievalChain
+        qa = ConversationalRetrievalChain.from_llm(
+            ChatOpenAI(),
+            retriever,
+            condense_question_prompt=prompt
+        )
+
+        chat_history = []
+        # while True:
+        question = """
+        Please give a complete review opinion according to the following requirements and format: {review_format}
+        Answer Result in English.
+        """.format({"review_format": self.review_format})
+        # 开始发送问题 chat_history 为必须参数,用于存储对话历史
+        result = qa({'question': question})
+        #chat_history.append((question, result['answer']))
+        print(result['answer'])
 
     def prepare(self):
         text = ''
         text += 'Title: ' + self.paper.title + '. '
         text += 'Abstract: ' + self.paper.section_texts['Abstract']
         text_token = len(self.encoding.encode(text))
-        if text_token > self.max_token_num/2 - 800:
-            input_text_index = int(len(text)*((self.max_token_num/2)-800)/text_token)
+        if text_token > self.max_token_num/2:
+            input_text_index = int(len(text)*self.max_token_num/2/text_token)
             text = text[:input_text_index]
         messages = [
             {"role": "system",
@@ -67,7 +166,29 @@ class Reviewer:
             result += choice.message.content
         print(result)
         return result.split(',')
+    def prepare2(self):
+        text = ''
+        text += 'Title: ' + self.paper.title + '. '
+        text += 'Abstract: ' + self.paper.section_texts['Abstract']
+        text_token = len(self.encoding.encode(text))
+        if text_token > self.max_token_num/2:
+            input_text_index = int(len(text)*self.max_token_num/2/text_token)
+            text = text[:input_text_index]
 
+        messages = [
+            {
+                "role": "system",
+                "content": f"You are a professional reviewer in the field of {self.research_fields}. \
+                        I will give you a paper. You need to review this paper and discuss the novelty and originality of ideas, correctness, clarity, the significance of results, potential impact and quality of the presentation. \
+                        Due to the length limitations, I am only allowed to provide you the abstract, introduction, conclusion and at most two sections of this paper. \
+                        Now I will give you the title and abstract and the headings of potential sections. \
+                        You need to reply at most two headings. Then I will further provide you the full information, includes aforementioned sections and at most two sections you called for.\n\n\
+                        Title: {self.paper.title}\n\n"
+            },
+            {"role": "user", "content": text},
+        ]
+        content =  f"Abstract: {self.paper.section_texts['Abstract']}\n\n" \
+                   f"Potential Sections: {self.paper.section_names[2:-1]}\n\n"
     def review(self):
         htmls = []
         sections_of_interest = self.prepare()

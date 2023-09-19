@@ -1,5 +1,4 @@
 PyMuPDF==1.21.1
-tiktoken==0.2.0
 tenacity==8.2.2
 pybase64==1.2.3
 Pillow==9.4.0
